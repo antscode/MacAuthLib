@@ -23,7 +23,7 @@ resource 'SIZE' (-1) {
 };
 
 resource 'DLOG' (128, purgeable) {
-	{ 0, 0, 296, 505 },
+	{ 0, 0, 316, 495 },
 	noGrowDocProc,
 	visible,
 	goAway,

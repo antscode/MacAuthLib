@@ -3,6 +3,7 @@
 #include "Util.h"
 #include "Keys.h"
 #include <json/json.h>
+#include <stdio.h>
 
 MacWifiLib _wifiLib;
 MacAuth _macAuth(&_wifiLib);
@@ -41,7 +42,6 @@ void ShowMainWindow()
 	UpdateDialog(_window, _window->visRgn);
 }
 
-
 void EventLoop()
 {
 	EventRecord event;
@@ -50,37 +50,32 @@ void EventLoop()
 	{
 		if (WaitNextEvent(everyEvent, &event, 0, NULL))
 		{
-			DoEvent(&event);
+			_macAuth.HandleEvents(&event);
+
+			WindowPtr windowPtr;
+			FindWindow(event.where, &windowPtr);
+
+			switch (event.what)
+			{
+				case kHighLevelEvent:
+					AEProcessAppleEvent(&event);
+					break;
+
+				case mouseDown:
+					if (windowPtr == _window)
+					{
+						HandleMouseDown(&event);
+					}
+					break;
+
+				case updateEvt:
+					if (windowPtr == _window)
+					{
+						HandleUpdate(&event);
+					}
+					break;
+			}
 		}
-	}
-}
-
-void DoEvent(EventRecord *eventPtr)
-{
-	_macAuth.HandleEvents(eventPtr);
-
-	WindowPtr windowPtr;
-	FindWindow(eventPtr->where, &windowPtr); 
-
-	switch (eventPtr->what)
-	{
-		case kHighLevelEvent:
-			AEProcessAppleEvent(eventPtr);
-			break;
-
-		case mouseDown:
-			if (windowPtr == _window)
-			{
-				HandleMouseDown(eventPtr); 
-			}
-			break;
-
-		case updateEvt:
-			if (windowPtr == _window)
-			{
-				HandleUpdate(eventPtr); 
-			}
-			break;
 	}
 }
 
@@ -89,13 +84,13 @@ void HandleMouseDown(EventRecord *eventPtr)
 	WindowPtr window;
 	short int part;
 
-	part = FindWindow(eventPtr->where, &window); 
+	part = FindWindow(eventPtr->where, &window);
 
 	switch (part)
 	{
 		case inContent:
 			if (window == FrontWindow())
-				HandleInContent(eventPtr);
+				HandleInContent(eventPtr); 
 			break;
 
 		case inDrag:
@@ -171,7 +166,44 @@ void TokenResponse(MacWifiResponse response)
 
 void BrowseResponse(MacWifiResponse response)
 {
+	if (response.Success)
+	{
+		Json::Value root;
+		Json::Reader reader;
+		bool parseSuccess = reader.parse(response.Content.c_str(), root);
+
+		if (parseSuccess)
+		{
+			Json::Value& albums = root["albums"];
+			Json::Value& topAlbum = albums["items"][0];
+			Json::Value& artist = topAlbum["artists"][0];
+			Json::Value& image = topAlbum["images"][0];
+
+			_albumName = topAlbum["name"].asString();
+			_artistName = artist["name"].asString();
+
+			string imageUrl = image["url"].asString();
+
+			_wifiLib.SetAuthorization("");
+			_wifiLib.Get(
+				"https://68k.io/image?ma_client_id=" + Keys::MacAuthClientId + 
+				"&source_url=" + imageUrl +
+				"&dest_width=300&dest_height=300", 
+				ImageResponse);
+		}
+	}
+
 	Util::DebugStr(response.Content);
+}
+
+void ImageResponse(MacWifiResponse response)
+{
+	if (response.Success)
+	{
+		vector<char> v(response.Content.begin(), response.Content.end());
+		_image = &v[512]; // Skip 512-byte PICT1 header
+		DoUpdate();
+	}
 }
 
 void HandleUpdate(EventRecord *eventPtr)
@@ -181,8 +213,23 @@ void HandleUpdate(EventRecord *eventPtr)
 	if (windowPtr == FrontWindow())
 	{
 		BeginUpdate(windowPtr); 
-		UpdateDialog(windowPtr, windowPtr->visRgn);
+		DoUpdate();
 		EndUpdate(windowPtr);
+	}
+}
+
+void DoUpdate()
+{
+	MacSetPort(_window);
+
+	if (_image > 0)
+	{
+		PicHandle imageHandle = (PicHandle)&_image;
+
+		Rect pictRect;
+		MacSetRect(&pictRect, 190, 10, 490, 310);
+
+		DrawPicture(imageHandle, &pictRect);
 	}
 }
 

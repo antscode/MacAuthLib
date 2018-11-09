@@ -5,6 +5,7 @@
 #include <map>
 #include <functional>
 #include <macwifi/MacWifiLib.h>
+#include <Dialogs.h>
 
 using namespace std;
 
@@ -34,6 +35,7 @@ class MacAuth
 	private:
 		MacWifiLib* _wifiLib;
 		AuthRequest _request;
+		DialogRef _dialog;
 		function<void(AuthResponse)> _onComplete;
 		string _userCode, _deviceCode;
 		enum UIState
@@ -46,13 +48,9 @@ class MacAuth
 
 		void CodeRequest();
 		void CodeResponse(MacWifiResponse response);
-		void CheckUserCode();
 		void StatusRequest();
 		void StatusResponse(MacWifiResponse response);
-
 		string GetResponseErrorMsg(MacWifiResponse response);
-		void HandleMouseDown(EventRecord *eventPtr);
-		void HandleInContent(EventRecord *eventPtr);
 		void UpdateUI();
 		void EraseStatusText();
 		void CloseDialog();

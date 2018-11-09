@@ -1,10 +1,8 @@
 #include "MacAuth.h"
 #include "Util.h"
-#include <Dialogs.h>
 #include <json/json.h>
 
 using namespace std::placeholders;
-DialogRef _dialog;
 
 MacAuth::MacAuth(MacWifiLib* wifiLib)
 {
@@ -15,19 +13,18 @@ void MacAuth::Authenticate(AuthRequest request, function<void(AuthResponse)> onC
 {
 	_request = request;
 	_onComplete = onComplete;
-
 	_dialog = GetNewDialog(1028, 0, (WindowPtr)-1);
-
 	_uiState = PleaseWait;
-	UpdateUI();
 
+	UpdateUI();
 	CodeRequest();
 }
 
 void MacAuth::HandleEvents(EventRecord *eventPtr)
 {
-
 	WindowPtr windowPtr;
+	short item;
+
 	FindWindow(eventPtr->where, &windowPtr);
 
 	if (windowPtr == _dialog)
@@ -35,60 +32,28 @@ void MacAuth::HandleEvents(EventRecord *eventPtr)
 		switch (eventPtr->what)
 		{
 			case mouseDown:
-				HandleMouseDown(eventPtr);
-				break;
-		}
-	}
-}
-
-void MacAuth::HandleMouseDown(EventRecord *eventPtr)
-{
-	WindowPtr window;
-	short int part;
-
-	part = FindWindow(eventPtr->where, &window);
-
-	switch (part)
-	{
-		case inContent:
-			HandleInContent(eventPtr);
-			break;
-
-		case inDrag:
-			DragWindow(window, eventPtr->where, &qd.screenBits.bounds);
-			break;
-
-		case inGoAway:
-			if (TrackGoAway(window, eventPtr->where))
 			{
-				CloseDialog();
+				if (DialogSelect(eventPtr, &_dialog, &item))
+				{
+					switch (item)
+					{
+						case 1:
+							Cancel();
+							break;
+
+						case 2:
+							StatusRequest();
+							break;
+					}
+				}
+				break;
 			}
-			break;
-	}
-}
-
-void MacAuth::HandleInContent(EventRecord *eventPtr)
-{
-	short item;
-
-	if (DialogSelect(eventPtr, &_dialog, &item))
-	{
-		switch (item)
-		{
-			case 1:
-				Cancel();
-				break;
-
-			case 2:
-				CheckUserCode();
-				break;
 		}
 	}
 }
 
 void MacAuth::Cancel()
 {
-	// TODO: in MacWifi Comms::Http.CancelRequest();
 	AuthResponse response;
 
 	response.Success = false;
@@ -114,8 +79,7 @@ void MacAuth::UpdateUI()
 			MoveTo(10, 20);
 			EraseStatusText();
 
-			string msg = "Contacting MacAuth, please wait...";
-			DrawString(Util::StrToPStr(msg));
+			DrawString("\pPlease wait...");
 
 			UpdateDialog(_dialog, _dialog->visRgn);
 			break;
@@ -133,7 +97,7 @@ void MacAuth::UpdateUI()
 			DrawString("\pVisit ");
 
 			ForeColor(blueColor);
-			DrawString("\p68k.io/login");
+			DrawString("\p68k.io/login ");
 
 			ForeColor(blackColor);
 
@@ -156,9 +120,8 @@ void MacAuth::UpdateUI()
 
 			MoveTo(centrePos, curPos.v + 34);
 			DrawString((ConstStr255Param)pUserCode);
+			
 			UpdateDialog(_dialog, _dialog->visRgn);
-
-			TextSize(0);
 			break;
 		}
 	}
@@ -243,16 +206,11 @@ void MacAuth::CodeResponse(MacWifiResponse response)
 	}
 }
 
-void MacAuth::CheckUserCode()
+void MacAuth::StatusRequest()
 {
 	_uiState = PleaseWait;
 	UpdateUI();
 
-	StatusRequest();
-}
-
-void MacAuth::StatusRequest()
-{
 	string params = "ma_client_id=" + _request.ClientId + "&device_code=" + _deviceCode;
 
 	_wifiLib->Post("https://68k.io/status",
@@ -281,6 +239,7 @@ void MacAuth::StatusResponse(MacWifiResponse response)
 
 				_uiState = EnterCode;
 				UpdateUI();
+				return;
 			}
 			else if (status == "complete")
 			{
@@ -297,6 +256,7 @@ void MacAuth::StatusResponse(MacWifiResponse response)
 
 					CloseDialog();
 					_onComplete(response);
+					return;
 				}
 			}
 		}

@@ -56,6 +56,7 @@ class MacAuth
 		void UpdateUI();
 		void EraseStatusText();
 		void CloseDialog();
+		void Cancel();
 };
 
 #endif

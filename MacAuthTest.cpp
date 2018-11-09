@@ -2,6 +2,7 @@
 #include "MacAuthTest.h"
 #include "Util.h"
 #include "Keys.h"
+#include <json/json.h>
 
 MacWifiLib _wifiLib;
 MacAuth _macAuth(&_wifiLib);
@@ -138,10 +139,39 @@ void HandleInContent(EventRecord *eventPtr)
 
 void HandleResponse(AuthResponse response)
 {
-	MacSetPort(_window);
-	MoveTo(50, 50);
-	Util::DebugStr(response.Code);
-	DrawString(Util::CtoPStr((char*)response.Code.c_str()));
+	if (response.Success)
+	{
+		_wifiLib.Post(
+			"https://accounts.spotify.com/api/token", 
+			"client_id=" + Keys::SpotifyClientId + 
+			"&client_secret=" + Keys::SpotifyClientSecret + 
+			"&grant_type=authorization_code&code=" + response.Code + 
+			"&redirect_uri=https://68k.io/login/callback", 
+			TokenResponse);
+	}
+}
+
+void TokenResponse(MacWifiResponse response)
+{
+	if (response.Success)
+	{
+		Json::Value root;
+		Json::Reader reader;
+		bool parseSuccess = reader.parse(response.Content.c_str(), root);
+
+		if (parseSuccess)
+		{
+			string accessToken = root["access_token"].asString();
+
+			_wifiLib.SetAuthorization("Bearer " + accessToken);
+			_wifiLib.Get("https://api.spotify.com/v1/browse/new-releases?country=AU&limit=1", BrowseResponse);
+		}
+	}
+}
+
+void BrowseResponse(MacWifiResponse response)
+{
+	Util::DebugStr(response.Content);
 }
 
 void HandleUpdate(EventRecord *eventPtr)

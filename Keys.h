@@ -10,6 +10,7 @@ class Keys
 	public:
 		static const string MacAuthClientId;
 		static const string SpotifyClientId;
+		static const string SpotifyClientSecret;
 };
 
 #endif

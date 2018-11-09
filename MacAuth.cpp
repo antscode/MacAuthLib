@@ -76,8 +76,7 @@ void MacAuth::HandleInContent(EventRecord *eventPtr)
 		switch (item)
 		{
 			case 1:
-				// TODO: in MacWifi Comms::Http.CancelRequest();
-				CloseDialog();
+				Cancel();
 				break;
 
 			case 2:
@@ -85,6 +84,19 @@ void MacAuth::HandleInContent(EventRecord *eventPtr)
 				break;
 		}
 	}
+}
+
+void MacAuth::Cancel()
+{
+	// TODO: in MacWifi Comms::Http.CancelRequest();
+	AuthResponse response;
+
+	response.Success = false;
+	response.Code = "";
+	response.Error = "User cancelled.";
+
+	CloseDialog();
+	_onComplete(response);
 }
 
 void MacAuth::UpdateUI()
@@ -206,7 +218,7 @@ void MacAuth::CodeResponse(MacWifiResponse response)
 			}
 			else
 			{
-				error = root["error"].asString();
+				error = root["error"].asString(); 
 			}
 		}
 	}
@@ -220,6 +232,13 @@ void MacAuth::CodeResponse(MacWifiResponse response)
 		ParamText(Util::StrToPStr(error), nil, nil, nil);
 		StopAlert(1030, nil);
 
+		AuthResponse response;
+
+		response.Success = false;
+		response.Code = "";
+		response.Error = error;
+
+		_onComplete(response);
 		CloseDialog();
 	}
 }
@@ -266,15 +285,19 @@ void MacAuth::StatusResponse(MacWifiResponse response)
 			else if (status == "complete")
 			{
 				string code = root["code"].asString();
+				error = root["error"].asString();
 
-				AuthResponse response;
+				if (code != "")
+				{
+					AuthResponse response;
 
-				response.Success = true;
-				response.Code = code;
-				response.Error = "";
+					response.Success = true;
+					response.Code = code;
+					response.Error = "";
 
-				_onComplete(response);
-				CloseDialog();
+					CloseDialog();
+					_onComplete(response);
+				}
 			}
 		}
 	}

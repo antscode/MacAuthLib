@@ -69,10 +69,7 @@ void EventLoop()
 					break;
 
 				case updateEvt:
-					if (windowPtr == _window)
-					{
-						HandleUpdate(&event);
-					}
+					HandleUpdate(&event);
 					break;
 			}
 		}
@@ -210,12 +207,9 @@ void HandleUpdate(EventRecord *eventPtr)
 {
 	WindowPtr windowPtr = (WindowPtr)eventPtr->message;
 
-	if (windowPtr == FrontWindow())
-	{
-		BeginUpdate(windowPtr); 
-		DoUpdate();
-		EndUpdate(windowPtr);
-	}
+	BeginUpdate(windowPtr); 
+	DoUpdate();
+	EndUpdate(windowPtr);
 }
 
 void DoUpdate()
@@ -231,6 +225,8 @@ void DoUpdate()
 
 		DrawPicture(imageHandle, &pictRect);
 	}
+
+	UpdateDialog(_window, _window->visRgn);
 }
 
 pascal OSErr ProcessResponseEvent(AppleEvent* appleEvent, AppleEvent* reply, long refCon)

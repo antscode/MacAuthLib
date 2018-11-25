@@ -1,13 +1,17 @@
 #include "MacAuth.h"
 #include "MacAuthTest.h"
-#include "Util.h"
 #include "Keys.h"
-#include <json/json.h>
+#include <gason/gason.hpp>
 #include <stdio.h>
+#include <vector>
+#include "MacAuthUtils.h"
 
 MacWifiLib _wifiLib;
 MacAuth _macAuth(&_wifiLib);
 DialogPtr _window;
+
+using namespace gason;
+using namespace std;
 
 int main()
 {
@@ -50,8 +54,6 @@ void EventLoop()
 	{
 		if (WaitNextEvent(everyEvent, &event, 0, NULL))
 		{
-			_macAuth.HandleEvents(&event);
-
 			WindowPtr windowPtr;
 			FindWindow(event.where, &windowPtr);
 
@@ -123,23 +125,20 @@ void HandleInContent(EventRecord *eventPtr)
 				authRequest.Params.insert(pair<string, string>("client_id", Keys::SpotifyClientId));
 				authRequest.Params.insert(pair<string, string>("response_type", "code"));
 
-				_macAuth.Authenticate(authRequest, HandleResponse);
+				AuthResponse authResponse = _macAuth.Authenticate(authRequest);
+
+				if (authResponse.Success)
+				{
+					_wifiLib.Post(
+						"https://accounts.spotify.com/api/token",
+						"client_id=" + Keys::SpotifyClientId +
+						"&client_secret=" + Keys::SpotifyClientSecret +
+						"&grant_type=authorization_code&code=" + authResponse.Code +
+						"&redirect_uri=https://68k.io/login/callback",
+						TokenResponse);
+				}
 			}
 		}
-	}
-}
-
-void HandleResponse(AuthResponse response)
-{
-	if (response.Success)
-	{
-		_wifiLib.Post(
-			"https://accounts.spotify.com/api/token", 
-			"client_id=" + Keys::SpotifyClientId + 
-			"&client_secret=" + Keys::SpotifyClientSecret + 
-			"&grant_type=authorization_code&code=" + response.Code + 
-			"&redirect_uri=https://68k.io/login/callback", 
-			TokenResponse);
 	}
 }
 
@@ -147,13 +146,13 @@ void TokenResponse(MacWifiResponse response)
 {
 	if (response.Success)
 	{
-		Json::Value root;
-		Json::Reader reader;
-		bool parseSuccess = reader.parse(response.Content.c_str(), root);
+		JsonAllocator allocator;
+		JsonValue root;
+		JsonParseStatus status = jsonParse((char*)response.Content.c_str(), root, allocator);
 
-		if (parseSuccess)
+		if (status == JSON_PARSE_OK)
 		{
-			string accessToken = root["access_token"].asString();
+			string accessToken = root("access_token").toString();
 
 			_wifiLib.SetAuthorization("Bearer " + accessToken);
 			_wifiLib.Get("https://api.spotify.com/v1/browse/new-releases?country=AU&limit=1", BrowseResponse);
@@ -165,23 +164,24 @@ void BrowseResponse(MacWifiResponse response)
 {
 	if (response.Success)
 	{
-		Json::Value root;
-		Json::Reader reader;
-		bool parseSuccess = reader.parse(response.Content.c_str(), root);
+		JsonAllocator allocator;
+		JsonValue root;
+		JsonParseStatus status = jsonParse((char*)response.Content.c_str(), root, allocator);
 
-		if (parseSuccess)
+		if (status == JSON_PARSE_OK)
 		{
-			Json::Value& albums = root["albums"];
-			Json::Value& topAlbum = albums["items"][0];
-			Json::Value& artist = topAlbum["artists"][0];
-			Json::Value& image = topAlbum["images"][0];
+			JsonValue albums = root("albums");
+			JsonValue topAlbum = albums("items")[0];
+			JsonValue artist = topAlbum("artists")[0];
+			JsonValue image = topAlbum("images")[0];
 
-			_albumName = topAlbum["name"].asString();
-			_artistName = artist["name"].asString();
+			_albumName = topAlbum("name").toString();
+			_artistName = artist("name").toString();
 
-			string imageUrl = image["url"].asString();
+			string imageUrl = image("url").toString();
 
 			_wifiLib.SetAuthorization("");
+			_wifiLib.Utf8ToMacRoman(false);
 			_wifiLib.Get(
 				"https://68k.io/image?ma_client_id=" + Keys::MacAuthClientId + 
 				"&source_url=" + imageUrl +
@@ -189,8 +189,6 @@ void BrowseResponse(MacWifiResponse response)
 				ImageResponse);
 		}
 	}
-
-	Util::DebugStr(response.Content);
 }
 
 void ImageResponse(MacWifiResponse response)

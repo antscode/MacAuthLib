@@ -100,13 +100,13 @@ make</NMakeReBuildCommandLine>
     <ClInclude Include="Keys.h" />
     <ClInclude Include="MacAuth.h" />
     <ClInclude Include="MacAuthTest.h" />
-    <ClInclude Include="Util.h" />
+    <ClInclude Include="MacAuthUtils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Keys.cpp" />
     <ClCompile Include="MacAuth.cpp" />
     <ClCompile Include="MacAuthTest.cpp" />
-    <ClCompile Include="Util.cpp" />
+    <ClCompile Include="MacAuthUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />

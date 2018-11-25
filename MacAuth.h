@@ -29,14 +29,15 @@ class MacAuth
 {
 	public:
 		MacAuth(MacWifiLib* wifiLib);
-		void Authenticate(AuthRequest request, function<void(AuthResponse)> onComplete);
-		void HandleEvents(EventRecord *eventPtr);
+		AuthResponse Authenticate(AuthRequest request);
+		
 
 	private:
 		MacWifiLib* _wifiLib;
 		AuthRequest _request;
-		DialogRef _dialog;
-		function<void(AuthResponse)> _onComplete;
+		DialogRef _authDialog;
+		AuthResponse _response;
+		bool _run;
 		string _userCode, _deviceCode;
 		enum UIState
 		{
@@ -46,6 +47,8 @@ class MacAuth
 
 		UIState _uiState;
 
+		void HandleEvents(EventRecord *eventPtr);
+		void HandleUpdate(EventRecord *eventPtr);
 		void CodeRequest();
 		void CodeResponse(MacWifiResponse response);
 		void StatusRequest();
@@ -53,7 +56,7 @@ class MacAuth
 		string GetResponseErrorMsg(MacWifiResponse response);
 		void UpdateUI();
 		void EraseStatusText();
-		void CloseDialog();
+		void CloseAuthDialog();
 		void Cancel();
 };
 

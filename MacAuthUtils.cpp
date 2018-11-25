@@ -3,11 +3,11 @@
 #include <Gestalt.h>
 #include <QuickDraw.h>
 #include <FixMath.h>
-#include "Util.h"
+#include "MacAuthUtils.h"
 
 #define kTwoPower32 (4294967296.0)      /* 2^32 */
 
-char* Util::PtoCStr(unsigned char *s)
+char* MacAuthUtils::PtoCStr(unsigned char *s)
 {
 	int theLen;
 	int t;
@@ -22,7 +22,7 @@ char* Util::PtoCStr(unsigned char *s)
 	return (char *)s;
 }
 
-unsigned char* Util::CtoPStr(char *s)
+unsigned char* MacAuthUtils::CtoPStr(char *s)
 {
 	int theLen;
 	int t;
@@ -37,7 +37,7 @@ unsigned char* Util::CtoPStr(char *s)
 	return (unsigned char *)s;
 }
 
-unsigned char* Util::StrToPStr(std::string str)
+unsigned char* MacAuthUtils::StrToPStr(std::string str)
 {
 	char* s = (char*)str.c_str();
 
@@ -54,7 +54,7 @@ unsigned char* Util::StrToPStr(std::string str)
 	return (unsigned char *)s;
 }
 
-void Util::DrawTextToWidth(std::string text, int width, int lineHeight, int newLineHPos)
+void MacAuthUtils::DrawTextToWidth(std::string text, int width, int lineHeight, int newLineHPos)
 {
 	const char* cText = text.c_str();
 	long textLen = strlen(cText);
@@ -96,7 +96,7 @@ void Util::DrawTextToWidth(std::string text, int width, int lineHeight, int newL
 	}
 }
 
-void Util::FrameDefaultButton(DialogPtr dialog, short itemNo, bool active)
+void MacAuthUtils::FrameDefaultButton(DialogPtr dialog, short itemNo, bool active)
 {
 	DialogItemType type;
 	ControlRef control;
@@ -131,7 +131,7 @@ void Util::FrameDefaultButton(DialogPtr dialog, short itemNo, bool active)
 	}
 }
 
-void Util::DebugStr(std::string msg)
+void MacAuthUtils::DebugStr(std::string msg)
 {
 	FILE *fp;
 	fp = fopen("Mac HD (68K):macauth.txt", "a");

@@ -1,23 +1,40 @@
 #include "MacAuth.h"
-#include "Util.h"
-#include <json/json.h>
+#include "MacAuthUtils.h"
+#include <gason/gason.hpp>
 
 using namespace std::placeholders;
+using namespace gason;
 
 MacAuth::MacAuth(MacWifiLib* wifiLib)
 {
 	_wifiLib = wifiLib;
 }
 
-void MacAuth::Authenticate(AuthRequest request, function<void(AuthResponse)> onComplete)
+AuthResponse MacAuth::Authenticate(AuthRequest request)
 {
+	EventRecord event;
+
 	_request = request;
-	_onComplete = onComplete;
-	_dialog = GetNewDialog(1028, 0, (WindowPtr)-1);
+	_authDialog = GetNewDialog(1028, 0, (WindowPtr)-1);
 	_uiState = PleaseWait;
+	_run = true;
+
+	_response.Success = false;
+	_response.Error = "";
+	_response.Code = "";
 
 	UpdateUI();
 	CodeRequest();
+
+	while (_run)
+	{
+		if (WaitNextEvent(everyEvent, &event, 0, NULL))
+		{
+			HandleEvents(&event);
+		}
+	}
+
+	return 	_response;
 }
 
 void MacAuth::HandleEvents(EventRecord *eventPtr)
@@ -27,52 +44,66 @@ void MacAuth::HandleEvents(EventRecord *eventPtr)
 
 	FindWindow(eventPtr->where, &windowPtr);
 
-	if (windowPtr == _dialog)
+	switch (eventPtr->what)
 	{
-		switch (eventPtr->what)
+		case kHighLevelEvent:
+			AEProcessAppleEvent(eventPtr);
+			break;
+
+		case mouseDown:
 		{
-			case mouseDown:
+			if (windowPtr == _authDialog)
 			{
-				if (DialogSelect(eventPtr, &_dialog, &item))
+				if (DialogSelect(eventPtr, &_authDialog, &item))
 				{
 					switch (item)
 					{
-						case 1:
-							Cancel();
-							break;
+					case 1:
+						Cancel();
+						break;
 
-						case 2:
-							StatusRequest();
-							break;
+					case 2:
+						StatusRequest();
+						break;
 					}
 				}
-				break;
 			}
+			break;
 		}
+
+		case updateEvt:
+			HandleUpdate(eventPtr);
+			break;
 	}
+}
+
+void MacAuth::HandleUpdate(EventRecord *eventPtr)
+{
+	WindowPtr windowPtr = (WindowPtr)eventPtr->message;
+
+	BeginUpdate(windowPtr);
+	EndUpdate(windowPtr);
 }
 
 void MacAuth::Cancel()
 {
-	AuthResponse response;
+	_response.Success = false;
+	_response.Code = "";
+	_response.Error = "User cancelled.";
 
-	response.Success = false;
-	response.Code = "";
-	response.Error = "User cancelled.";
-
-	CloseDialog();
-	_onComplete(response);
+	CloseAuthDialog();
+	_run = false;
 }
 
 void MacAuth::UpdateUI()
 {
-	MacSetPort(_dialog);
+	MacSetPort(_authDialog);
 
 	switch (_uiState)
 	{
 		case PleaseWait:
 		{
-			Util::FrameDefaultButton(_dialog, 2, false);
+			MacAuthUtils::FrameDefaultButton(_authDialog, 2, false);
 
 			TextSize(0);
 			ForeColor(blackColor);
@@ -81,13 +112,13 @@ void MacAuth::UpdateUI()
 
 			DrawString("\pPlease wait...");
 
-			UpdateDialog(_dialog, _dialog->visRgn);
+			UpdateDialog(_authDialog, _authDialog->visRgn);
 			break;
 		}
 
 		case EnterCode:
 		{
-			Util::FrameDefaultButton(_dialog, 2, true);
+			MacAuthUtils::FrameDefaultButton(_authDialog, 2, true);
 			
 			TextSize(0);
 			ForeColor(blackColor);
@@ -103,44 +134,43 @@ void MacAuth::UpdateUI()
 
 			Point curPos;
 			GetPen(&curPos);
-			int maxWidth = _dialog->portRect.right - curPos.h;
+			int maxWidth = _authDialog->portRect.right - curPos.h;
 
-			Util::DrawTextToWidth("on your smartphone and enter this code:", maxWidth, 15, 10);
+			MacAuthUtils::DrawTextToWidth("on your smartphone and enter this code:", maxWidth, 15, 10);
 
 			GetPen(&curPos);
 			TextSize(24);
 
 			string userCode = _userCode.c_str();
 			const char* cUserCode = userCode.c_str();
-			char* pUserCode = (char*)Util::CtoPStr((char*)cUserCode);
+			char* pUserCode = (char*)MacAuthUtils::CtoPStr((char*)cUserCode);
 
 			short strWidth;
 			strWidth = StringWidth((ConstStr255Param)pUserCode);
-			int centrePos = (_dialog->portRect.right - strWidth) / 2;
+			int centrePos = (_authDialog->portRect.right - strWidth) / 2;
 
 			MoveTo(centrePos, curPos.v + 34);
 			DrawString((ConstStr255Param)pUserCode);
 			
-			UpdateDialog(_dialog, _dialog->visRgn);
+			UpdateDialog(_authDialog, _authDialog->visRgn);
 			break;
 		}
 	}
 }
 
-void MacAuth::CloseDialog()
+void MacAuth::CloseAuthDialog()
 {
-	DisposeDialog(_dialog);
-	_dialog = 0;
+	CloseDialog(_authDialog);
 }
 
 void MacAuth::EraseStatusText()
 {
 	Rect rect;
 	MacSetRect(&rect,
-		_dialog->portRect.left,
-		_dialog->portRect.top,
-		_dialog->portRect.right,
-		_dialog->portRect.bottom - 40);
+		_authDialog->portRect.left,
+		_authDialog->portRect.top,
+		_authDialog->portRect.right,
+		_authDialog->portRect.bottom - 40);
 
 	EraseRect(&rect);
 }
@@ -165,23 +195,23 @@ void MacAuth::CodeResponse(MacWifiResponse response)
 
 	if (response.Success)
 	{
-		Json::Value root;
-		Json::Reader reader;
-		bool parseSuccess = reader.parse(response.Content.c_str(), root);
-
-		if (parseSuccess)
+		JsonAllocator allocator;
+		JsonValue root;
+		JsonParseStatus status = jsonParse((char*)response.Content.c_str(), root, allocator);
+		
+		if (status == JSON_PARSE_OK)
 		{
-			if (root["user_code"].asString() != "")
-			{
-				_userCode = root["user_code"].asString();
-				_deviceCode = root["device_code"].asString();
+			_userCode = root("user_code").toString();
+			_deviceCode = root("device_code").toString();
 
+			if (_userCode != "")
+			{
 				_uiState = EnterCode;
 				UpdateUI();
 			}
 			else
 			{
-				error = root["error"].asString(); 
+				error = root("error").toString(); 
 			}
 		}
 	}
@@ -192,17 +222,15 @@ void MacAuth::CodeResponse(MacWifiResponse response)
 
 	if (error != "")
 	{
-		ParamText(Util::StrToPStr(error), nil, nil, nil);
+		ParamText(MacAuthUtils::StrToPStr(error), nil, nil, nil);
 		StopAlert(1030, nil);
 
-		AuthResponse response;
+		_response.Success = false;
+		_response.Code = "";
+		_response.Error = error;
 
-		response.Success = false;
-		response.Code = "";
-		response.Error = error;
-
-		_onComplete(response);
-		CloseDialog();
+		CloseAuthDialog();
+		_run = false;
 	}
 }
 
@@ -224,39 +252,46 @@ void MacAuth::StatusResponse(MacWifiResponse response)
 
 	if (response.Success)
 	{
-		Json::Value root;
-		Json::Reader reader;
-		bool parseSuccess = reader.parse(response.Content.c_str(), root);
-
-		if (parseSuccess)
+		JsonAllocator allocator;
+		JsonValue root;
+		JsonParseStatus status = jsonParse((char*)response.Content.c_str(), root, allocator);
+		
+		if (status == JSON_PARSE_OK)
 		{
-			string status = root["status"].asString();
-			error = root["error"].asString();
-
-			if (status == "pending")
+			if (root("error").isString())
 			{
-				NoteAlert(1029, nil);
-
-				_uiState = EnterCode;
-				UpdateUI();
-				return;
+				error = root("error").toString();
 			}
-			else if (status == "complete")
+			
+			if (root("status").isString())
 			{
-				string code = root["code"].asString();
-				error = root["error"].asString();
+				string status = root("status").toString();
 
-				if (code != "")
+				if (status == "pending")
 				{
-					AuthResponse response;
+					NoteAlert(1029, nil);
 
-					response.Success = true;
-					response.Code = code;
-					response.Error = "";
-
-					CloseDialog();
-					_onComplete(response);
+					_uiState = EnterCode;
+					UpdateUI();
 					return;
+				}
+				else if (status == "complete")
+				{
+					if (root("code").isString())
+					{
+						string code = root("code").toString();
+
+						if (code != "")
+						{
+							_response.Success = true;
+							_response.Code = code;
+							_response.Error = "";
+
+							CloseAuthDialog();
+							_run = false;
+							return;
+						}
+					}
 				}
 			}
 		}
@@ -268,7 +303,7 @@ void MacAuth::StatusResponse(MacWifiResponse response)
 
 	if (error != "")
 	{
-		ParamText(Util::StrToPStr(response.ErrorMsg), nil, nil, nil);
+		ParamText(MacAuthUtils::StrToPStr(response.ErrorMsg), nil, nil, nil);
 		StopAlert(1030, nil);
 
 		_uiState = EnterCode;

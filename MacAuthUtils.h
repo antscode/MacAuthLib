@@ -2,7 +2,7 @@
 #include <MacTypes.h>
 #include <Dialogs.h>
 
-class Util
+class MacAuthUtils
 {
 public:
 	static char* PtoCStr(unsigned char *s);

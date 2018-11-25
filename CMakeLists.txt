@@ -5,10 +5,10 @@ SET(CMAKE_CXX_FLAGS "-Ofast")
 
 add_library(MacAuth STATIC
 	MacAuth.cpp
-	Util.cpp
+	MacAuthUtils.cpp
 )
 
-target_link_libraries(MacAuth MacWifiLib jsoncpp)
+target_link_libraries(MacAuth MacWifiLib gason)
 
 add_application(MacAuthTest
 	MacAuthTest.cpp

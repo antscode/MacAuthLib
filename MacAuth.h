@@ -29,7 +29,7 @@ class MacAuth
 {
 	public:
 		MacAuth(MacWifiLib* wifiLib);
-		AuthResponse Authenticate(AuthRequest request);
+		AuthResponse Authenticate(AuthRequest& request);
 		
 
 	private:
@@ -50,10 +50,10 @@ class MacAuth
 		void HandleEvents(EventRecord *eventPtr);
 		void HandleUpdate(EventRecord *eventPtr);
 		void CodeRequest();
-		void CodeResponse(MacWifiResponse response);
+		void CodeResponse(MacWifiResponse& response);
 		void StatusRequest();
-		void StatusResponse(MacWifiResponse response);
-		string GetResponseErrorMsg(MacWifiResponse response);
+		void StatusResponse(MacWifiResponse& response);
+		string GetResponseErrorMsg(MacWifiResponse& response);
 		void UpdateUI();
 		void EraseStatusText();
 		void CloseAuthDialog();

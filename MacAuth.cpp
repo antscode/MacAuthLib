@@ -10,7 +10,7 @@ MacAuth::MacAuth(MacWifiLib* wifiLib)
 	_wifiLib = wifiLib;
 }
 
-AuthResponse MacAuth::Authenticate(AuthRequest request)
+AuthResponse MacAuth::Authenticate(AuthRequest& request)
 {
 	EventRecord event;
 
@@ -189,7 +189,7 @@ void MacAuth::CodeRequest()
 		std::bind(&MacAuth::CodeResponse, this, _1));
 }
 
-void MacAuth::CodeResponse(MacWifiResponse response)
+void MacAuth::CodeResponse(MacWifiResponse& response)
 {
 	string error = "";
 
@@ -246,7 +246,7 @@ void MacAuth::StatusRequest()
 		std::bind(&MacAuth::StatusResponse, this, _1));
 }
 
-void MacAuth::StatusResponse(MacWifiResponse response)
+void MacAuth::StatusResponse(MacWifiResponse& response)
 {
 	string error = "";
 
@@ -311,7 +311,7 @@ void MacAuth::StatusResponse(MacWifiResponse response)
 	}
 }
 
-string MacAuth::GetResponseErrorMsg(MacWifiResponse response)
+string MacAuth::GetResponseErrorMsg(MacWifiResponse& response)
 {
 	string err;
 

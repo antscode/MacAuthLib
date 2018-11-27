@@ -142,7 +142,7 @@ void HandleInContent(EventRecord *eventPtr)
 	}
 }
 
-void TokenResponse(MacWifiResponse response)
+void TokenResponse(MacWifiResponse& response)
 {
 	if (response.Success)
 	{
@@ -160,7 +160,7 @@ void TokenResponse(MacWifiResponse response)
 	}
 }
 
-void BrowseResponse(MacWifiResponse response)
+void BrowseResponse(MacWifiResponse& response)
 {
 	if (response.Success)
 	{
@@ -191,7 +191,7 @@ void BrowseResponse(MacWifiResponse response)
 	}
 }
 
-void ImageResponse(MacWifiResponse response)
+void ImageResponse(MacWifiResponse& response)
 {
 	if (response.Success)
 	{
